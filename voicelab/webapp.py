@@ -515,6 +515,13 @@ def build_app() -> gr.Blocks:
         )
         demo.load(on_qwen_context_change, inputs=_qwen_context_inputs, outputs=_qwen_context_outputs)
 
+        gr.Markdown(
+            "---\n"
+            "[voice-mixer on GitHub](https://github.com/hromi/voice-mixer) · "
+            "part of the [udk.ai](https://udk.ai) suite",
+            elem_id="footer",
+        )
+
     return demo
 
 
