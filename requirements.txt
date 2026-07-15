@@ -1,0 +1,9 @@
+# Core: enough to run the CLI, HTTP API, and web UI (list/browse/serve).
+# Actual voice cloning additionally needs requirements-ml.txt.
+typer>=0.12
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-multipart>=0.0.9
+gradio>=4.26
+pydantic>=2.6
+numpy>=1.24

@@ -1,0 +1,18 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.venv-qwen/
+.cache/
+checkpoints/*
+!checkpoints/.gitkeep
+outputs/
+*.egg-info/
+.pytest_cache/
+
+# Recordings and generated clones are user data, not source — keep the
+# folders under version control via .gitkeep but not their contents.
+voices/*
+!voices/.gitkeep
+synthetic/*
+!synthetic/.gitkeep

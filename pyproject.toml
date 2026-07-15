@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "voicelab"
+version = "0.1.0"
+description = "Communal voice cloning on top of OpenVoice — CLI, HTTP API, and web app."
+requires-python = ">=3.9"
+
+[project.scripts]
+voicelab = "voicelab.cli:app"
+
+[tool.setuptools.packages.find]
+include = ["voicelab*"]

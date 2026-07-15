@@ -1,0 +1,16 @@
+# Heavy ML dependencies required to actually run OpenVoice cloning.
+# Install after requirements.txt, and see scripts/download_checkpoints.sh
+# for fetching the model weights these libraries need.
+#
+# Deliberately NOT re-pinning librosa/pydub/cn2an/pypinyin/etc. here:
+# OpenVoice's and MeloTTS's own setup.py already declare exact versions
+# for those (e.g. MeloTTS pins librosa==0.9.1). Duplicating them with
+# different constraints sends pip's resolver backtracking through ancient,
+# broken releases trying to satisfy both.
+-r requirements.txt
+
+#torch>=2.1
+#torchaudio>=2.1
+
+MeloTTS @ git+https://github.com/myshell-ai/MeloTTS.git
+git+https://github.com/myshell-ai/OpenVoice.git
