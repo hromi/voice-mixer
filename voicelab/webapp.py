@@ -264,8 +264,17 @@ def load_synthetic_item(folder: str, item_id: str):
     return str(item.audio_path), json.dumps(item.metadata, indent=2)
 
 
+_FOOTER_CSS = """
+/* Replace Gradio's own "Built with Gradio" branding link with ours below,
+   in the same footer row (keep the "Use via API" link — still useful). */
+footer .built-with { display: none !important; }
+#voicelab-footer { text-align: center; color: var(--body-text-color-subdued); }
+#voicelab-footer a { color: inherit; }
+"""
+
+
 def build_app() -> gr.Blocks:
-    with gr.Blocks(title="voicelab") as demo:
+    with gr.Blocks(title="voicelab", css=_FOOTER_CSS) as demo:
         gr.Markdown(
             "# voicelab\n"
             "Communal voice cloning on top of OpenVoice. Record or upload reference "
@@ -516,10 +525,9 @@ def build_app() -> gr.Blocks:
         demo.load(on_qwen_context_change, inputs=_qwen_context_inputs, outputs=_qwen_context_outputs)
 
         gr.Markdown(
-            "---\n"
             "[voice-mixer on GitHub](https://github.com/hromi/voice-mixer) · "
             "part of the [udk.ai](https://udk.ai) suite",
-            elem_id="footer",
+            elem_id="voicelab-footer",
         )
 
     return demo
