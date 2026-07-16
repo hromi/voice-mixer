@@ -36,15 +36,6 @@ DEFAULT_WATERMARK_MESSAGE = "@voicelab"
 
 AUDIO_EXTENSIONS = {".wav", ".mp3", ".flac", ".ogg", ".m4a", ".webm"}
 
-# Below this, a file is almost certainly a failed/incomplete recording
-# rather than real (even very short) audio — e.g. Safari/macOS's
-# microphone recorder is known to sometimes finish "uploading" before the
-# actual blob is ready, saving a near-empty file. A real recording, even
-# 0.1s at a low sample rate, comfortably exceeds this; format-agnostic
-# (checked before any format-specific parsing) so it catches every
-# extension in AUDIO_EXTENSIONS the same way.
-MIN_RECORDING_BYTES = 1024
-
 # Gradio's built-in login wall for the web app (voicelab serve web).
 # No password ships in this (public) repo — VOICELAB_WEB_PASSWORD must be
 # set in the environment the server actually runs in. Read lazily (via

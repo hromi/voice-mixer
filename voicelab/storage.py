@@ -108,14 +108,6 @@ def add_recording(speaker: str, source_path: Path, original_filename: Optional[s
     ext = source_path.suffix.lower() or ".wav"
     if ext not in config.AUDIO_EXTENSIONS:
         raise ValueError(f"unsupported audio extension: {ext}")
-    size = source_path.stat().st_size
-    if size < config.MIN_RECORDING_BYTES:
-        raise ValueError(
-            f"recording is empty or failed to upload ({size} bytes) — this is a known "
-            "browser quirk (especially Safari/macOS's microphone recorder finishing the "
-            "upload after the Save button is clicked); wait a moment after the waveform "
-            "appears and try saving again"
-        )
     d = speaker_dir(speaker, create=True)
     stamp = time.strftime("%Y%m%dT%H%M%S")
     stem = re.sub(r"[^A-Za-z0-9_-]+", "-", Path(original_filename or source_path.name).stem)[:60] or "recording"

@@ -163,10 +163,7 @@ def save_recording(speaker: str, audio_path: str, note: str):
         return ("Record or upload audio first.", gr.update(), gr.update(), gr.update(),
                 *[gr.update()] * MAX_SPEAKER_SLOTS)
     speaker = speaker.strip()
-    try:
-        dest = storage.add_recording(speaker, audio_path, source="web", note=note.strip() if note else None)
-    except ValueError as e:
-        return (f"⚠️ {e}", gr.update(), gr.update(), gr.update(), *[gr.update()] * MAX_SPEAKER_SLOTS)
+    dest = storage.add_recording(speaker, audio_path, source="web", note=note.strip() if note else None)
     names = _speaker_choices()
     return (
         f"Saved {dest.name} for {speaker}.",
@@ -302,20 +299,12 @@ def build_app() -> gr.Blocks:
             with gr.Row():
                 with gr.Column():
                     speaker_name = gr.Textbox(label="Speaker name", placeholder="e.g. SolarPunk0")
-                    rec_audio = gr.Audio(
-                        sources=["microphone", "upload"], type="filepath", format="wav", label="Recording",
-                    )
+                    rec_audio = gr.Audio(sources=["microphone", "upload"], type="filepath", label="Recording")
                     note_in = gr.Textbox(
                         label="Note / transcript (optional)",
                         placeholder="What was said, or any other note about this recording",
                     )
-                    save_btn = gr.Button("Save recording", variant="primary", interactive=False)
-                    gr.Markdown(
-                        "_Waiting for the recording to finish uploading before Save is enabled — "
-                        "this avoids a known Safari/macOS bug where clicking Save too early saves "
-                        "an empty file._",
-                        elem_id="rec-upload-hint",
-                    )
+                    save_btn = gr.Button("Save recording", variant="primary")
                     save_status = gr.Markdown()
                 with gr.Column():
                     existing_speaker = gr.Dropdown(choices=[], label="Existing speaker recordings")
@@ -482,18 +471,6 @@ def build_app() -> gr.Blocks:
                     _make_pin_slot_handler(idx), inputs=[pin_selected_state, *pin_sliders],
                     outputs=pin_sliders,
                 )
-
-            # Gate Save on the recording actually finishing its upload to
-            # the server, not just the local waveform preview appearing —
-            # Safari/macOS in particular is known to show the waveform
-            # from the in-browser blob well before (or even instead of)
-            # successfully uploading it, which otherwise lets you save an
-            # empty file. .upload() fires only once the real server-side
-            # value is ready; disable again whenever the recording is
-            # cleared/restarted so a stale enabled state can't linger.
-            rec_audio.upload(lambda: gr.update(interactive=True), outputs=save_btn)
-            rec_audio.clear(lambda: gr.update(interactive=False), outputs=save_btn)
-            rec_audio.start_recording(lambda: gr.update(interactive=False), outputs=save_btn)
 
             save_btn.click(
                 save_recording, inputs=[speaker_name, rec_audio, note_in],
