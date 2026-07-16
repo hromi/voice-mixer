@@ -75,6 +75,29 @@ The result lands in `synthetic/JaneDoe+SolarPunk0/` (mix folders are
 named by sorting the participating speakers), with the metadata recording
 each speaker's normalized weight and exact source files.
 
+### Chorus mode (an ensemble, not a blend)
+
+Communal mixing above blends multiple speakers' embeddings into *one*
+voice before generation. `--chorus` does the opposite: it clones the text
+individually and in full for *every* entry in `--mix` (no blending — each
+voice keeps its own complete identity), then overlays the resulting clips
+into a single file as a simultaneous ensemble — several distinct voices
+saying the same thing at the same time, not one voice dissolved into
+another. `--mix` weights become each voice's relative volume in the final
+mix instead of a blend ratio. Needs at least 2 speakers/recordings.
+
+```
+voicelab clone "We are all saying this together!" --mix "SolarPunk0,JaneDoe,Alex" --chorus
+```
+
+Lands in `synthetic/Alex+JaneDoe+SolarPunk0-chorus/`, distinct from the
+same speakers' regular blended-mix folder. Each individual voice's clone
+is also produced (and cached) via the normal path along the way, so it's
+inspectable/reusable on its own too — see `"individual_clones"` in the
+chorus result's metadata. The mixing itself (resample, align, sum, peak-
+normalize) is pure stdlib `wave` + numpy (`voicelab/chorus.py`), so it
+works with either pipeline and needs no extra dependency.
+
 ### Languages / pipelines
 
 | Pipeline | Languages | Notes |
@@ -148,7 +171,7 @@ endpoints:
 
 - `GET /speakers` — list speakers and recording counts
 - `POST /speakers/{speaker}/recordings` — upload a recording (multipart)
-- `POST /synthesize` — `{"text": "...", "mix": [{"speaker": "SolarPunk0", "weight": 0.6}, {"speaker": "JaneDoe", "weight": 0.4}], "qwen_clone_method": "native"}`
+- `POST /synthesize` — `{"text": "...", "mix": [{"speaker": "SolarPunk0", "weight": 0.6}, {"speaker": "JaneDoe", "weight": 0.4}], "qwen_clone_method": "native"}`; add `"chorus": true` for the simultaneous-ensemble mode instead of blending
 - `GET /synthetic/{folder}/{id}/audio` — fetch a cached clone's audio
 
 ## Web app
@@ -156,7 +179,8 @@ endpoints:
 `voicelab serve web` opens a Gradio app (behind a login wall — set
 `VOICELAB_WEB_PASSWORD`, see `voicelab/config.py`) with three tabs: record
 or upload a voice straight from the browser microphone, clone/mix text
-into speech with per-speaker weight sliders that auto-rebalance, and
+into speech with per-speaker weight sliders that auto-rebalance (plus a
+🎭 Chorus mode checkbox for the simultaneous-ensemble effect above), and
 browse the recording/synthetic library with playback and full metadata.
 It defaults to the recommended Qwen3-TTS native pipeline; the OpenVoice
 alternative is one radio button away.

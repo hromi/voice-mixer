@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional, Union
 
-from . import config, embeddings, storage
+from . import chorus, config, embeddings, storage
 from .embeddings import MixEntry
 
 _ENGINE_VERSION = "2"
@@ -462,6 +462,99 @@ class OpenVoiceEngine:
                 "requested_base_speaker_key": base_speaker_key,
                 "resolved_base_speaker_key": resolved_base_speaker_key,
                 "mix": mix_detail,
+                "engine_version": _ENGINE_VERSION,
+                "device": self.device,
+                "cache_key": cache_key,
+            }
+            item = storage.save_synthetic(folder_name, out_wav, metadata)
+
+        return SynthesisResult(item=item, cached=False)
+
+    def synthesize_chorus(
+        self,
+        text: str,
+        mix: MixSpec,
+        *,
+        language: str = config.DEFAULT_LANGUAGE,
+        speed: float = config.DEFAULT_SPEED,
+        tau: float = config.DEFAULT_TAU,
+        base_speaker_key: Optional[str] = None,
+        backend: Optional[str] = None,
+        qwen_clone_method: Optional[str] = None,
+        force: bool = False,
+    ) -> SynthesisResult:
+        """Chorus mode: clone `text` individually and in full for *every*
+        entry in `mix` — no embedding blending at all, each voice keeps
+        its own complete identity — then mix the resulting clips together
+        as a simultaneous ensemble (summed waveforms, not concatenated),
+        so several voices say the same thing at the same time rather than
+        one blended voice saying it once. `mix` weights become each
+        voice's relative volume in the final mix instead of a blend
+        ratio. Each individual voice's clone is produced (and cached) via
+        the normal `synthesize()` path, so it's reusable/inspectable on
+        its own too.
+        """
+        mix_entries = [m if isinstance(m, MixEntry) else MixEntry(**m) for m in mix]
+        if len(mix_entries) < 2:
+            raise ValueError("chorus mode needs at least 2 speakers/recordings to be a chorus")
+
+        folder_name = storage.mix_folder_name([m.speaker for m in mix_entries]) + "-chorus"
+
+        resolved_mix = []
+        for m in mix_entries:
+            files = sorted(m.files) if m.files else sorted(p.name for p in storage.list_recordings(m.speaker))
+            if not files:
+                raise ValueError(f"speaker {m.speaker!r} has no recordings in {storage.speaker_dir(m.speaker)}")
+            checksums = {f: storage.checksum_file(storage.speaker_dir(m.speaker) / f) for f in files}
+            resolved_mix.append({
+                "speaker": m.speaker, "weight": m.weight, "files": files, "checksums": checksums,
+            })
+
+        canonical_params = {
+            "engine_version": _ENGINE_VERSION,
+            "mode": "chorus",
+            "text": text,
+            "language": language,
+            "backend": backend or "auto",
+            "qwen_clone_method": qwen_clone_method or "openvoice",
+            "speed": speed,
+            "tau": tau,
+            "base_speaker_key": base_speaker_key or "auto",
+            "mix": resolved_mix,
+        }
+        cache_key = storage.compute_cache_key(canonical_params)
+
+        if not force:
+            cached = storage.find_cached(folder_name, cache_key)
+            if cached is not None:
+                return SynthesisResult(item=cached, cached=True)
+
+        voice_clips: list[tuple[Path, float]] = []
+        individual_results = []
+        for m in mix_entries:
+            single = self.synthesize(
+                text, [MixEntry(speaker=m.speaker, weight=1.0, files=m.files)],
+                language=language, speed=speed, tau=tau,
+                base_speaker_key=base_speaker_key, backend=backend,
+                qwen_clone_method=qwen_clone_method, force=force,
+            )
+            voice_clips.append((single.item.audio_path, m.weight))
+            individual_results.append({
+                "speaker": m.speaker, "weight": m.weight,
+                "folder": single.item.folder, "id": single.item.id,
+            })
+
+        with tempfile.TemporaryDirectory(prefix="voicelab-chorus-") as tmp_str:
+            out_wav = Path(tmp_str) / "chorus.wav"
+            chorus.mix_chorus(voice_clips, out_wav)
+
+            metadata = {
+                "created_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+                "mode": "chorus",
+                "text": text,
+                "language": language,
+                "mix": resolved_mix,
+                "individual_clones": individual_results,
                 "engine_version": _ENGINE_VERSION,
                 "device": self.device,
                 "cache_key": cache_key,

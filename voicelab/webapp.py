@@ -179,7 +179,7 @@ def run_clone(text: str, mix_mode: str, speaker_names: list[str], pin_pairs: lis
 
     speaker_values = rest[:MAX_SPEAKER_SLOTS]
     pin_values = rest[MAX_SPEAKER_SLOTS:MAX_SPEAKER_SLOTS + MAX_PIN_SLOTS]
-    language, backend, qwen_method, speed, tau, base_speaker, force = rest[MAX_SPEAKER_SLOTS + MAX_PIN_SLOTS:]
+    language, backend, qwen_method, speed, tau, base_speaker, chorus, force = rest[MAX_SPEAKER_SLOTS + MAX_PIN_SLOTS:]
 
     if not text or not text.strip():
         raise gr.Error("Enter some text to speak.")
@@ -199,8 +199,12 @@ def run_clone(text: str, mix_mode: str, speaker_names: list[str], pin_pairs: lis
         if not mix:
             raise gr.Error("No speakers with a nonzero weight — record a voice first, or move a slider up.")
 
+    if chorus and len(mix) < 2:
+        raise gr.Error("Chorus mode needs at least 2 speakers/recordings with a nonzero weight.")
+
     engine = get_shared_engine()
-    result = engine.synthesize(
+    synth_fn = engine.synthesize_chorus if chorus else engine.synthesize
+    result = synth_fn(
         text.strip(), mix, language=language, speed=speed, tau=tau,
         base_speaker_key=(base_speaker or "").strip() or None, backend=_BACKEND_VALUES.get(backend),
         qwen_clone_method=_QWEN_METHOD_VALUES.get(qwen_method), force=force,
@@ -396,6 +400,14 @@ def build_app() -> gr.Blocks:
                         speed_in = gr.Slider(0.5, 2.0, value=config.DEFAULT_SPEED, step=0.05, label="Speed")
                         tau_in = gr.Slider(0.0, 1.0, value=config.DEFAULT_TAU, step=0.05, visible=False,
                                             label="Conversion strength (tau)")
+                    chorus_in = gr.Checkbox(
+                        value=False,
+                        label="🎭 Chorus mode",
+                        info="Clone every selected voice individually in full (no blending) and mix "
+                             "them as a simultaneous ensemble — everyone saying the text at once, not "
+                             "one blended voice. Weights become each voice's relative volume. Needs "
+                             "at least 2 speakers/recordings with a nonzero weight.",
+                    )
                     force_in = gr.Checkbox(value=False, label="Force regenerate (ignore cache)")
                     clone_btn = gr.Button("Clone voice", variant="primary")
                 with gr.Column():
@@ -484,7 +496,8 @@ def build_app() -> gr.Blocks:
                 run_clone,
                 inputs=[text_in, mix_mode_in, speaker_names_state, pin_selected_state,
                         *speaker_sliders, *pin_sliders,
-                        language_in, backend_in, qwen_method_in, speed_in, tau_in, base_speaker_in, force_in],
+                        language_in, backend_in, qwen_method_in, speed_in, tau_in, base_speaker_in,
+                        chorus_in, force_in],
                 outputs=[clone_audio, clone_status, clone_meta],
             )
 

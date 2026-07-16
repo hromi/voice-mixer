@@ -43,6 +43,7 @@ class SynthesizeRequest(BaseModel):
     base_speaker_key: Optional[str] = None
     backend: Optional[str] = None  # "melo" | "qwen" | None (auto by language)
     qwen_clone_method: Optional[str] = None  # "openvoice" | "native" | None (openvoice); implies backend="qwen"
+    chorus: bool = False  # clone each mix entry individually and mix as a simultaneous ensemble, not a blend
     force: bool = False
 
 
@@ -113,8 +114,9 @@ def synthesize(req: SynthesizeRequest):
 
     engine = get_shared_engine()
     mix = [m.model_dump() for m in req.mix]
+    synth_fn = engine.synthesize_chorus if req.chorus else engine.synthesize
     result = _handle_common_errors(
-        engine.synthesize, req.text, mix, language=req.language, speed=req.speed,
+        synth_fn, req.text, mix, language=req.language, speed=req.speed,
         tau=req.tau, base_speaker_key=req.base_speaker_key, backend=req.backend,
         qwen_clone_method=req.qwen_clone_method, force=req.force,
     )

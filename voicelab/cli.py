@@ -89,6 +89,13 @@ def clone(
              "tone-color conversion) or 'native' (Qwen3-TTS's own x-vector cloning, no OpenVoice "
              "step at all — implies backend='qwen')",
     ),
+    chorus: bool = typer.Option(
+        False, "--chorus",
+        help="Clone each speaker in --mix individually in full (no blending) and mix the "
+             "results as a simultaneous ensemble — everyone saying the text at once, not "
+             "one blended voice. --mix weights become each voice's relative volume. "
+             "Needs at least 2 speakers/recordings.",
+    ),
     force: bool = typer.Option(False, "--force", help="Recompute even if a cached result exists"),
     out: Optional[Path] = typer.Option(None, "--out", "-o", help="Also copy the result to this path"),
 ):
@@ -97,7 +104,8 @@ def clone(
 
     mix_entries = parse_mix_spec(mix)
     engine = OpenVoiceEngine()
-    result = engine.synthesize(
+    synth_fn = engine.synthesize_chorus if chorus else engine.synthesize
+    result = synth_fn(
         text, mix_entries, language=language, speed=speed, tau=tau,
         base_speaker_key=base_speaker, backend=backend, qwen_clone_method=qwen_clone_method, force=force,
     )
