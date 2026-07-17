@@ -4,6 +4,7 @@ __pycache__/
 venv/
 .venv-qwen/
 .cache/
+.env
 checkpoints/*
 !checkpoints/.gitkeep
 outputs/

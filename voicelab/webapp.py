@@ -9,7 +9,7 @@ from typing import Hashable
 
 import gradio as gr
 
-from . import config, storage
+from . import config, manifesto, storage, teapunk
 from .embeddings import MixEntry
 
 MIX_MODE = "Speaker mix (weighted)"
@@ -546,31 +546,103 @@ def build_app() -> gr.Blocks:
     return demo
 
 
-def build_asgi_app(mount_path: str = "/tts") -> "FastAPI":
-    """FastAPI app with the Gradio UI mounted at both "/" and `mount_path`.
+def build_teapunk_app() -> gr.Blocks:
+    """The teapunk installation's walk-up kiosk: read a random manifesto
+    excerpt aloud, leave an email, get the full manifesto back cloned in
+    your own voice. Deliberately a separate, unauthenticated Blocks app
+    (mounted without the admin login wall — see build_asgi_app) since
+    installation visitors have no reason to know the admin password, and
+    the admin Record/Clone/Library tools have no reason to be exposed to
+    installation visitors either.
+    """
+    with gr.Blocks(title="Solarpunk Manifesto — Teapunk", css=_FOOTER_CSS) as demo:
+        gr.Markdown(
+            "# 🫖 Teapunk: lend your voice to the future\n"
+            "Read the excerpt below aloud, leave your email, and we'll clone the *entire* "
+            "Solarpunk Manifesto in your own voice and send it to you. Generation takes "
+            "roughly 15-20 minutes — no need to wait here for it."
+        )
 
-    Mounted twice because we're behind a reverse proxy (amsel.udk.ai/tts ->
-    this process) and it isn't known in advance whether the proxy strips
-    the "/tts" prefix before forwarding or forwards it verbatim — mounting
-    at both makes the app reachable either way. Each mount gets its own
-    Blocks instance since Gradio's mount call is not safe to repeat on the
-    same instance.
+        excerpt_state = gr.State("")
+        excerpt_display = gr.Markdown()
+        reroll_btn = gr.Button("🔀 Show me a different excerpt")
+
+        rec_audio = gr.Audio(sources=["microphone"], type="filepath", label="Read the excerpt above, aloud")
+        email_in = gr.Textbox(label="Your email address", placeholder="you@example.com")
+        consent_in = gr.Checkbox(
+            value=False,
+            label="I consent to this recording being used to generate and email me the manifesto "
+                  "audio. It stays local to this installation.",
+        )
+        submit_btn = gr.Button("✨ Generate my manifesto", variant="primary")
+        status = gr.Markdown()
+
+        def roll_excerpt():
+            text = manifesto.pick_random_excerpt()
+            return text, f"> {text}"
+
+        reroll_btn.click(roll_excerpt, outputs=[excerpt_state, excerpt_display])
+        demo.load(roll_excerpt, outputs=[excerpt_state, excerpt_display])
+
+        def on_submit(audio_path, email, consent):
+            if not consent:
+                raise gr.Error("Please check the consent box first.")
+            try:
+                teapunk.submit_recording(audio_path, email)
+            except ValueError as e:
+                raise gr.Error(str(e))
+            return (
+                f"🎉 Thank you! We're generating the full manifesto in your voice now — "
+                f"it'll arrive at **{email}** in roughly 15-20 minutes."
+            )
+
+        submit_btn.click(on_submit, inputs=[rec_audio, email_in, consent_in], outputs=status)
+
+        gr.Markdown(
+            "[voice-mixer on GitHub](https://github.com/hromi/voice-mixer) · "
+            "part of the [udk.ai](https://udk.ai) suite",
+            elem_id="voicelab-footer",
+        )
+
+    return demo
+
+
+def build_asgi_app(mount_path: str = "/tts", teapunk_path: str = "/teapunk") -> "FastAPI":
+    """FastAPI app with the admin Gradio UI mounted (behind the login
+    wall) at both "/" and `mount_path`, plus the public teapunk kiosk
+    mounted at `teapunk_path` with no login at all.
+
+    The admin UI is mounted twice because we're behind a reverse proxy
+    (amsel.udk.ai/tts -> this process) and it isn't known in advance
+    whether the proxy strips the "/tts" prefix before forwarding or
+    forwards it verbatim — mounting at both makes the app reachable
+    either way. Each mount gets its own Blocks instance since Gradio's
+    mount call is not safe to repeat on the same instance.
     """
     from fastapi import FastAPI
     from fastapi.responses import RedirectResponse
 
     app = FastAPI(title="voicelab-web")
+
+    def _redirect_factory(path: str):
+        def _redirect():
+            return RedirectResponse(url=path.rstrip("/") + "/")
+        return _redirect
+
     if mount_path and mount_path != "/":
-        @app.get(mount_path, include_in_schema=False)
-        def _redirect_to_trailing_slash():
-            return RedirectResponse(url=mount_path.rstrip("/") + "/")
+        app.get(mount_path, include_in_schema=False)(_redirect_factory(mount_path))
+    if teapunk_path and teapunk_path != "/":
+        app.get(teapunk_path, include_in_schema=False)(_redirect_factory(teapunk_path))
+
     # The "/" mount has an empty path prefix, so it matches every incoming
-    # path (Starlette routes are matched in registration order) — it must
-    # be registered *after* the more specific mount_path, or it would
-    # swallow every request before mount_path is ever reached.
+    # path (Starlette routes are matched in registration order) — every
+    # more specific mount must be registered *before* it, or it would
+    # swallow every request before those are ever reached.
     auth = (config.WEB_AUTH_USERNAME, config.get_web_auth_password())
     if mount_path and mount_path != "/":
         gr.mount_gradio_app(app, build_app(), path=mount_path, auth=auth)
+    if teapunk_path and teapunk_path != "/":
+        gr.mount_gradio_app(app, build_teapunk_app(), path=teapunk_path)  # no auth: public kiosk
     gr.mount_gradio_app(app, build_app(), path="/", auth=auth)
     return app
 

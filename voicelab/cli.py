@@ -150,9 +150,11 @@ def serve_web(
     host: str = "127.0.0.1",
     port: int = 7860,
     share: bool = False,
-    mount_path: str = typer.Option("/tts", help='Extra path to mount the UI at, for reverse proxies (e.g. "/tts")'),
+    mount_path: str = typer.Option("/tts", help='Extra path to mount the admin UI at, for reverse proxies (e.g. "/tts")'),
+    teapunk_path: str = typer.Option("/teapunk", help="Path for the public (no-login) teapunk kiosk installation"),
 ):
-    """Run the Gradio web app (mounted at both "/" and --mount-path)."""
+    """Run the Gradio web app: admin UI (mounted at "/" and --mount-path,
+    behind the login wall) plus the public teapunk kiosk at --teapunk-path."""
     if share:
         from .webapp import build_app
         build_app().launch(
@@ -163,7 +165,7 @@ def serve_web(
 
     import uvicorn
     from .webapp import build_asgi_app
-    uvicorn.run(build_asgi_app(mount_path), host=host, port=port)
+    uvicorn.run(build_asgi_app(mount_path, teapunk_path), host=host, port=port)
 
 
 if __name__ == "__main__":

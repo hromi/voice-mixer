@@ -3,7 +3,7 @@ import wave
 import numpy as np
 import pytest
 
-from voicelab import chorus
+from voicelab import audio, chorus
 
 
 def _write_tone(path, freq_hz, duration_s, sr=16000, amplitude=0.5):
@@ -42,8 +42,8 @@ def test_mix_chorus_is_a_genuine_sum_not_either_input(tmp_path):
 
     chorus.mix_chorus([(a, 1.0), (b, 1.0)], out)
 
-    data_a, sr_a = chorus._read_wav(a)
-    data_out, sr_out = chorus._read_wav(out)
+    data_a, sr_a = audio.read_wav(a)
+    data_out, sr_out = audio.read_wav(out)
     assert sr_out == sr_a
     # Two identical in-phase 0.3-amplitude tones should sum to ~0.6 peak
     # (below the 0.99 clipping threshold, so untouched by normalization)
@@ -58,7 +58,7 @@ def test_mix_chorus_never_clips(tmp_path):
 
     chorus.mix_chorus([(c, 1.0) for c in clips], out)
 
-    data_out, _ = chorus._read_wav(out)
+    data_out, _ = audio.read_wav(out)
     assert np.max(np.abs(data_out)) <= 1.0
 
 
@@ -71,12 +71,12 @@ def test_mix_chorus_respects_relative_gain(tmp_path):
     chorus.mix_chorus([(loud, 1.0), (quiet, 1.0)], out_equal)
     chorus.mix_chorus([(loud, 10.0), (quiet, 1.0)], out_weighted)
 
-    data_equal, _ = chorus._read_wav(out_equal)
-    data_weighted, _ = chorus._read_wav(out_weighted)
+    data_equal, _ = audio.read_wav(out_equal)
+    data_weighted, _ = audio.read_wav(out_weighted)
     # Both get peak-normalized, but the *shape* differs: the heavily
     # weighted version should correlate more strongly with the loud tone
     # alone than the equal-weight version does.
-    data_loud, _ = chorus._read_wav(loud)
+    data_loud, _ = audio.read_wav(loud)
     n = min(len(data_loud), len(data_equal), len(data_weighted))
     corr_equal = np.corrcoef(data_equal[:n], data_loud[:n])[0, 1]
     corr_weighted = np.corrcoef(data_weighted[:n], data_loud[:n])[0, 1]

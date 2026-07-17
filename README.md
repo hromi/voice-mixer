@@ -185,6 +185,31 @@ browse the recording/synthetic library with playback and full metadata.
 It defaults to the recommended Qwen3-TTS native pipeline; the OpenVoice
 alternative is one radio button away.
 
+## Teapunk installation
+
+A separate, **unauthenticated** kiosk app for a physical installation:
+`voicelab serve web` also mounts it at `--teapunk-path` (default
+`/teapunk`), alongside — but independent of — the password-protected
+admin UI above. A visitor reads a randomly-picked excerpt from
+`voicelab/data/manifesto.txt` (`voicelab/manifesto.py`) aloud, leaves
+their email, and in the background (a daemon thread, so the kiosk isn't
+blocked) we clone the *entire* manifesto sentence-by-sentence in their
+own voice, concatenate it, compress it to MP3 (`voicelab/audio.py`, via
+ffmpeg — needs it on PATH), and email it to them
+(`voicelab/mailer.py`) from the address configured in `.env` (copy
+`.env.example`; SMTP host/port/username/password, never committed).
+
+Privacy: the visitor's email is **never** written into voicelab's own
+public storage (the admin Library tab browses `voices/`/`synthetic/`) —
+their recording is filed under an anonymous generated id
+(`teapunk.new_guest_slug()`), and the email only lives in-memory for the
+background job plus a private operations log
+(`.cache/teapunk_log.jsonl`, gitignored, not web-served) kept for
+resending after a bounce. Since the whole run takes ~15-20 minutes per
+visitor, this endpoint has no built-in rate-limiting — if it's reachable
+from beyond the installation's own network, consider firewalling it to
+local access only.
+
 ## Tests
 
 ```bash

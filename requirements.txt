@@ -7,3 +7,4 @@ python-multipart>=0.0.9
 gradio>=4.26
 pydantic>=2.6
 numpy>=1.24
+python-dotenv>=1.0
